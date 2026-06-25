@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Tasks</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .list-section { margin-bottom: 2rem; }
+        .list-section h3 { margin-bottom: 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+        .modal-content.wide { max-width: 650px; }
+        .staff-select { height: 100px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; width: 100%; }
+    </style>
+</head>
+<body class="dashboard-page">
+
+    <nav class="navbar">
+        <div class="navbar__brand">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838.838-2.872a2 2 0 0 1 .506-.854z"/>
+            </svg>
+            <span>Manage Tasks</span>
+        </div>
+        <div class="navbar__right">
+            <button class="btn-logout" onclick="window.location.href='/dashboard'">
+                <span>Back to Dashboard</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="dashboard-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>Manage Tasks</h2>
+            <button class="btn-login" style="width: auto; padding: 0.5rem 1rem;" onclick="openTaskModal()">Create Task</button>
+        </div>
+
+        <div class="list-section">
+            <h3 style="color: var(--accent-primary)">Static Tasks (Ongoing)</h3>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Title</th><th>Description</th><th>Assigned Staff</th><th>Actions</th></tr></thead>
+                    <tbody id="staticTasksBody"><tr><td colspan="4" style="text-align: center;">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="list-section">
+            <h3 style="color: var(--accent-warning)">Dynamic Tasks (Not Done)</h3>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Title</th><th>Description</th><th>Assigned Staff</th><th>Actions</th></tr></thead>
+                    <tbody id="dynamicNotDoneTasksBody"><tr><td colspan="4" style="text-align: center;">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="list-section">
+            <h3 style="color: var(--accent-success)">Dynamic Tasks (Done)</h3>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Title</th><th>Description</th><th>Assigned Staff</th><th>Actions</th></tr></thead>
+                    <tbody id="dynamicDoneTasksBody"><tr><td colspan="4" style="text-align: center;">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content wide">
+            <div class="modal-header">
+                <h2 id="modalTitle">Create Task</h2>
+                <button class="close-btn" onclick="closeTaskModal()">&times;</button>
+            </div>
+            <form id="taskForm" onsubmit="saveTask(event)">
+                <input type="hidden" id="taskId">
+                <div class="form-group">
+                    <label>Title</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="taskTitle" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <div class="input-wrapper">
+                        <textarea id="taskDescription" style="width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 0.5rem;"></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <div class="input-wrapper">
+                        <select id="taskType" onchange="toggleIsDoneField()" style="width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 0.5rem;" required>
+                            <option value="STATIC">Static</option>
+                            <option value="DYNAMIC">Dynamic</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" id="isDoneWrapper" style="display: none; align-items: center; margin-top: 1rem;">
+                    <input type="checkbox" id="taskIsDone" style="margin-right: 0.5rem;">
+                    <label for="taskIsDone" style="margin-bottom: 0;">Is Done?</label>
+                </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label>Assign Staff (Hold Ctrl/Cmd to select multiple)</label>
+                    <div class="input-wrapper">
+                        <select id="taskStaffs" class="staff-select" multiple>
+                            <!-- populated via js -->
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn-login" style="margin-top: 1.5rem;">Save Task</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allTasks = [];
+        let allStaffs = [];
+
+        window.onload = async () => {
+            await fetchStaffs();
+            await fetchTasks();
+        };
+
+        async function fetchStaffs() {
+            try {
+                const res = await fetch('/api/admin/accounts');
+                if (res.ok) {
+                    const accounts = await res.json();
+                    allStaffs = accounts.filter(acc => acc.role === 'STAFF');
+                    const select = document.getElementById('taskStaffs');
+                    select.innerHTML = allStaffs.map(staff => `<option value="${staff.id}">${staff.email}</option>`).join('');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function fetchTasks() {
+            try {
+                const res = await fetch('/api/admin/tasks');
+                if(res.ok) {
+                    allTasks = await res.json();
+                    
+                    const staticTasks = allTasks.filter(t => t.type === 'STATIC');
+                    const dynamicNotDone = allTasks.filter(t => t.type === 'DYNAMIC' && !t.isDone);
+                    const dynamicDone = allTasks.filter(t => t.type === 'DYNAMIC' && t.isDone);
+
+                    renderTable('staticTasksBody', staticTasks);
+                    renderTable('dynamicNotDoneTasksBody', dynamicNotDone);
+                    renderTable('dynamicDoneTasksBody', dynamicDone);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderTable(tbodyId, taskList) {
+            const tbody = document.getElementById(tbodyId);
+            if (taskList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No tasks found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = taskList.map(task => `
+                <tr>
+                    <td style="font-weight: 600;">${task.title}</td>
+                    <td>${task.description || ''}</td>
+                    <td>${(task.staffNames || []).join('<br>')}</td>
+                    <td>
+                        <button type="button" class="btn-icon" onclick="editTask(${task.id})" style="color: var(--accent-primary)">✎</button>
+                        <button type="button" class="btn-icon" onclick="deleteTask(${task.id})" style="color: var(--accent-danger)">🗑</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function toggleIsDoneField() {
+            const type = document.getElementById('taskType').value;
+            document.getElementById('isDoneWrapper').style.display = type === 'DYNAMIC' ? 'flex' : 'none';
+        }
+
+        function openTaskModal() {
+            document.getElementById('modalTitle').innerText = 'Create Task';
+            document.getElementById('taskForm').reset();
+            document.getElementById('taskId').value = '';
+            const staffSelect = document.getElementById('taskStaffs');
+            for(let i = 0; i < staffSelect.options.length; i++) staffSelect.options[i].selected = false;
+            
+            toggleIsDoneField();
+            document.getElementById('taskModal').classList.add('active');
+        }
+
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.remove('active');
+        }
+
+        function editTask(id) {
+            const task = allTasks.find(t => t.id === id);
+            if (!task) return;
+
+            document.getElementById('modalTitle').innerText = 'Edit Task';
+            document.getElementById('taskId').value = task.id;
+            document.getElementById('taskTitle').value = task.title;
+            document.getElementById('taskDescription').value = task.description || '';
+            document.getElementById('taskType').value = task.type;
+            document.getElementById('taskIsDone').checked = task.isDone || false;
+
+            const staffSelect = document.getElementById('taskStaffs');
+            for(let i = 0; i < staffSelect.options.length; i++) {
+                staffSelect.options[i].selected = (task.staffIds || []).includes(parseInt(staffSelect.options[i].value));
+            }
+
+            toggleIsDoneField();
+            document.getElementById('taskModal').classList.add('active');
+        }
+
+        async function saveTask(e) {
+            e.preventDefault();
+            const id = document.getElementById('taskId').value;
+            const title = document.getElementById('taskTitle').value;
+            const description = document.getElementById('taskDescription').value;
+            const type = document.getElementById('taskType').value;
+            const isDone = type === 'DYNAMIC' ? document.getElementById('taskIsDone').checked : null;
+            
+            const staffSelect = document.getElementById('taskStaffs');
+            const staffIds = Array.from(staffSelect.selectedOptions).map(opt => parseInt(opt.value));
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? '/api/admin/tasks/' + id : '/api/admin/tasks';
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, description, type, isDone, staffIds })
+                });
+
+                if (res.ok) {
+                    closeTaskModal();
+                    fetchTasks();
+                } else {
+                    alert('Failed to save task: ' + await res.text());
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function deleteTask(id) {
+            if (!confirm('Are you sure you want to delete this task?')) return;
+            try {
+                const res = await fetch('/api/admin/tasks/' + id, { method: 'DELETE' });
+                if (res.ok) {
+                    fetchTasks();
+                } else {
+                    alert('Failed to delete task: ' + await res.text());
+                }
+            } catch (e) { console.error(e); }
+        }
+    </script>
+</body>
+</html>

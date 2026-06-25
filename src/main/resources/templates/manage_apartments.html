@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Apartments</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .modal-content.wide {
+            max-width: 650px;
+        }
+    </style>
+</head>
+<body class="dashboard-page">
+
+    <!-- Top navigation -->
+    <nav class="navbar">
+        <div class="navbar__brand">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 21V5a2 2 0 0 1 2-2h6v18"/>
+                <path d="M11 3h8a2 2 0 0 1 2 2v16H11"/>
+            </svg>
+            <span>Manage Apartments</span>
+        </div>
+        <div class="navbar__right">
+            <button class="btn-logout" onclick="window.location.href='/dashboard'">
+                <span>Back to Dashboard</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="dashboard-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>All Blocks</h2>
+            <!-- Base info is view-only, so no Add Apartment button here -->
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Block</th>
+                        <th>Floor</th>
+                        <th>Area (sqm)</th>
+                        <th>Owner</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="apartmentsTableBody">
+                    <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Residents Modal -->
+    <div id="residentsModal" class="modal">
+        <div class="modal-content wide">
+            <div class="modal-header">
+                <h2 id="residentsModalTitle">Manage Residents</h2>
+                <button class="close-btn" onclick="closeResidentsModal()">&times;</button>
+            </div>
+            
+            <!-- Add Resident Form -->
+            <form id="addResidentForm" onsubmit="addResident(event)" style="margin-bottom: 1.5rem; background: var(--bg-surface); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                <h3 style="font-size: 0.9375rem; margin-bottom: 0.75rem; color: var(--text-secondary);">Add New Resident</h3>
+                <input type="hidden" id="currentAptId">
+                <div style="display: flex; gap: 1rem; align-items: flex-end;">
+                    <div class="form-group" style="flex: 1;">
+                        <div class="input-wrapper">
+                            <input type="text" id="newResName" placeholder="Full Name" required>
+                        </div>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <div class="input-wrapper">
+                            <input type="text" id="newResCccd" placeholder="CCCD" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-login" style="width: auto; margin: 0; padding: 0.7rem 1.2rem;">Add</button>
+                </div>
+            </form>
+
+            <div id="residentsAlert" class="alert" style="display:none;"></div>
+
+            <div class="table-container" style="margin-top: 0; max-height: 300px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>CCCD</th>
+                            <th style="width: 140px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="residentsTableBody">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Resident Modal -->
+    <div id="editResidentModal" class="modal" style="z-index: 1050;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Resident</h2>
+                <button class="close-btn" onclick="closeEditResidentModal()">&times;</button>
+            </div>
+            <form id="editResidentForm" onsubmit="updateResident(event)">
+                <input type="hidden" id="editResId">
+                <div class="form-group">
+                    <label>Name</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="editResName" required>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 1.25rem;">
+                    <label>CCCD</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="editResCccd" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-login" style="margin-top: 1.5rem;">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let apartments = [];
+        let currentApartmentId = null;
+
+        window.onload = () => {
+            fetchApartments();
+        };
+
+        // APARTMENTS
+        async function fetchApartments() {
+            try {
+                const res = await fetch('/api/apartments');
+                if(res.ok) {
+                    apartments = await res.json();
+                    const tbody = document.getElementById('apartmentsTableBody');
+                    tbody.innerHTML = '';
+                    
+                    if (apartments.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No apartments found.</td></tr>';
+                        return;
+                    }
+
+                    apartments.forEach(apt => {
+                        const ownerDisplay = apt.ownerEmail ? 
+                            `<span style="color: var(--accent-owner); font-weight: 500;">${apt.ownerEmail}</span>` : 
+                            `<span style="color: var(--text-muted);">Unassigned</span>`;
+
+                        tbody.innerHTML += `
+                            <tr>
+                                <td style="font-weight: 600;">${apt.name}</td>
+                                <td>${apt.floor}</td>
+                                <td>${apt.area}</td>
+                                <td>${ownerDisplay}</td>
+                                <td class="actions-cell">
+                                    <button class="btn-small btn-primary" onclick="openResidentsModal(${apt.id}, '${apt.name}')">Residents</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    document.getElementById('apartmentsTableBody').innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Failed to load apartments.</td></tr>';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // RESIDENTS MODAL
+        function openResidentsModal(aptId, blockName) {
+            currentApartmentId = aptId;
+            document.getElementById('currentAptId').value = aptId;
+            document.getElementById('residentsModalTitle').innerText = 'Residents - Block ' + blockName;
+            document.getElementById('residentsAlert').style.display = 'none';
+            document.getElementById('addResidentForm').reset();
+            document.getElementById('residentsTableBody').innerHTML = '<tr><td colspan="3" style="text-align:center;">Loading...</td></tr>';
+            
+            document.getElementById('residentsModal').classList.add('active');
+            fetchResidents(aptId);
+        }
+
+        function closeResidentsModal() {
+            document.getElementById('residentsModal').classList.remove('active');
+            currentApartmentId = null;
+        }
+
+        async function fetchResidents(aptId) {
+            try {
+                const res = await fetch('/api/apartments/' + aptId + '/residents');
+                const tbody = document.getElementById('residentsTableBody');
+                if(res.ok) {
+                    const residents = await res.json();
+                    tbody.innerHTML = '';
+                    if (residents.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No residents found in this block.</td></tr>';
+                        return;
+                    }
+                    residents.forEach(r => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${r.name}</td>
+                                <td>${r.cccd}</td>
+                                <td class="actions-cell">
+                                    <button class="btn-small btn-primary" onclick="openEditResidentModal(${r.id}, '${r.name.replace(/'/g, "\\'")}', '${r.cccd}')">Edit</button>
+                                    <button class="btn-small btn-danger" onclick="deleteResident(${r.id})">Delete</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red;">Error loading residents.</td></tr>';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function showAlert(msg, isError = false) {
+            const alertBox = document.getElementById('residentsAlert');
+            alertBox.className = isError ? 'alert alert--error' : 'alert alert--success';
+            alertBox.innerHTML = msg;
+            alertBox.style.display = 'flex';
+        }
+
+        async function addResident(e) {
+            e.preventDefault();
+            const name = document.getElementById('newResName').value;
+            const cccd = document.getElementById('newResCccd').value;
+            
+            const res = await fetch('/api/apartments/' + currentApartmentId + '/residents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, cccd })
+            });
+
+            if(res.ok) {
+                showAlert('Resident added successfully!');
+                document.getElementById('addResidentForm').reset();
+                fetchResidents(currentApartmentId);
+            } else {
+                showAlert(await res.text(), true);
+            }
+        }
+
+        // EDIT RESIDENT
+        function openEditResidentModal(id, name, cccd) {
+            document.getElementById('editResId').value = id;
+            document.getElementById('editResName').value = name;
+            document.getElementById('editResCccd').value = cccd;
+            document.getElementById('editResidentModal').classList.add('active');
+        }
+
+        function closeEditResidentModal() {
+            document.getElementById('editResidentModal').classList.remove('active');
+        }
+
+        async function updateResident(e) {
+            e.preventDefault();
+            const id = document.getElementById('editResId').value;
+            const name = document.getElementById('editResName').value;
+            const cccd = document.getElementById('editResCccd').value;
+
+            const res = await fetch('/api/apartments/residents/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, cccd })
+            });
+
+            if(res.ok) {
+                closeEditResidentModal();
+                showAlert('Resident updated successfully!');
+                fetchResidents(currentApartmentId);
+            } else {
+                alert('Failed to update: ' + await res.text());
+            }
+        }
+
+        // DELETE RESIDENT
+        async function deleteResident(id) {
+            if(!confirm('Are you sure you want to remove this resident?')) return;
+            const res = await fetch('/api/apartments/residents/' + id, { method: 'DELETE' });
+            if(res.ok) {
+                showAlert('Resident deleted successfully!');
+                fetchResidents(currentApartmentId);
+            } else {
+                alert('Failed to delete: ' + await res.text());
+            }
+        }
+    </script>
+</body>
+</html>

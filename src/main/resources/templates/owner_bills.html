@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Bills — Apartment Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .filter-section {
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .filter-section select {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        .bill-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid #eaeaea;
+        }
+        .bill-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+        .bill-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .bill-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .status-paid {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .status-unpaid {
+            background: #fef08a;
+            color: #854d0e;
+        }
+        .status-overdue {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .bill-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .detail-label {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+        .detail-value {
+            font-weight: 500;
+            color: #111;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .items-table th, .items-table td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+            color: black;
+        }
+        .items-table th {
+            background: #f8fafc;
+            font-weight: 500;
+            color: black;
+        }
+        .no-bills {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+            background: white;
+            border-radius: 8px;
+            border: 1px dashed #ccc;
+        }
+    </style>
+</head>
+<body class="dashboard-page">
+
+    <!-- Top navigation -->
+    <nav class="navbar">
+        <div class="navbar__brand" onclick="window.location.href='/dashboard'" style="cursor: pointer;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 21V5a2 2 0 0 1 2-2h6v18"/>
+                <path d="M11 3h8a2 2 0 0 1 2 2v16H11"/>
+                <path d="M7 9h2"/>
+                <path d="M7 13h2"/>
+                <path d="M7 17h2"/>
+                <path d="M15 9h2"/>
+                <path d="M15 13h2"/>
+                <path d="M15 17h2"/>
+            </svg>
+            <span>Apartment Management</span>
+        </div>
+
+        <div class="navbar__right">
+            <div class="navbar__user">
+                <div class="avatar Owner">
+                    <span>O</span>
+                </div>
+                <div class="navbar__user-info">
+                    <span class="navbar__email" th:text="${account.email}">user@email.com</span>
+                    <span class="navbar__role badge Owner">Owner</span>
+                </div>
+            </div>
+            <a href="/dashboard" class="btn-logout" style="text-decoration: none; margin-right: 1rem; color: #333;">
+                <span>Dashboard</span>
+            </a>
+            <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="btn-logout" id="logoutButton">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    <span>Logout</span>
+                </button>
+            </form>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="dashboard-content">
+        <div style="margin-bottom: 2rem;">
+            <h1>My Bills</h1>
+            <p>View your apartment bills and usage history.</p>
+        </div>
+
+        <div class="filter-section">
+            <label for="monthFilter" style="font-weight: 500;">Filter by Month:</label>
+            <select id="monthFilter" onchange="filterBills()">
+                <!-- Options populated by JS -->
+            </select>
+        </div>
+
+        <div id="billsContainer">
+            <div class="no-bills">Loading bills...</div>
+        </div>
+    </main>
+
+    <script>
+        let allBills = [];
+
+        document.addEventListener('DOMContentLoaded', fetchBills);
+
+        async function fetchBills() {
+            try {
+                const response = await fetch('/api/owner/bills');
+                if (!response.ok) throw new Error('Failed to fetch bills');
+                allBills = await response.json();
+                
+                populateMonthFilter();
+                filterBills();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('billsContainer').innerHTML = `<div class="no-bills">Error loading bills. Please try again later.</div>`;
+            }
+        }
+
+        function populateMonthFilter() {
+            const select = document.getElementById('monthFilter');
+            const months = new Set();
+            
+            allBills.forEach(bill => {
+                if (bill.month) {
+                    const monthYear = bill.month.toString().substring(0, 7);
+                    months.add(monthYear);
+                }
+            });
+
+            // Sort months descending
+            const sortedMonths = Array.from(months).sort().reverse();
+            
+            sortedMonths.forEach(my => {
+                const option = document.createElement('option');
+                option.value = my;
+                option.textContent = formatMonthYear(my);
+                select.appendChild(option);
+            });
+        }
+
+        function formatMonthYear(yyyyMm) {
+            if (!yyyyMm) return 'Unknown Month';
+            const [year, month] = yyyyMm.toString().split('-');
+            if (!year || !month) return yyyyMm;
+            const date = new Date(year, parseInt(month) - 1);
+            return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        }
+
+        function filterBills() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            let filtered = [];
+            if (selectedMonth) {
+                filtered = allBills.filter(bill => bill.month && bill.month.toString().startsWith(selectedMonth));
+            }
+            
+            // Evaluate overdue
+            filtered.forEach(bill => {
+                if (!bill.isDone) {
+                    const hasNewer = allBills.some(b => b.apartmentId === bill.apartmentId && b.month > bill.month);
+                    bill.isOverdue = hasNewer;
+                } else {
+                    bill.isOverdue = false;
+                }
+            });
+
+            // Sort by Apartment Name, then Floor
+            filtered.sort((a, b) => {
+                const nameA = a.apartmentName || '';
+                const nameB = b.apartmentName || '';
+                const nameCmp = nameA.localeCompare(nameB, undefined, {numeric: true});
+                if (nameCmp !== 0) return nameCmp;
+
+                const floorA = a.apartmentFloor || '';
+                const floorB = b.apartmentFloor || '';
+                return floorA.localeCompare(floorB, undefined, {numeric: true});
+            });
+            
+            renderBills(filtered);
+        }
+
+        function renderBills(billsToRender) {
+            const container = document.getElementById('billsContainer');
+            
+            if (billsToRender.length === 0) {
+                container.innerHTML = `<div class="no-bills">No bills found for the selected period.</div>`;
+                return;
+            }
+
+            container.innerHTML = billsToRender.map(bill => {
+                let statusClass = 'status-unpaid';
+                let statusText = 'Unpaid';
+                if (bill.isDone) {
+                    statusClass = 'status-paid';
+                    statusText = 'Paid';
+                } else if (bill.isOverdue) {
+                    statusClass = 'status-overdue';
+                    statusText = 'Overdue';
+                }
+                
+                let itemsHtml = '';
+                if (bill.items && bill.items.length > 0) {
+                    itemsHtml = `
+                        <table class="items-table">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Quantity Used</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${bill.items.map(item => `
+                                    <tr>
+                                        <td>${item.itemName}</td>
+                                        <td>${item.quantity}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                } else {
+                    itemsHtml = `<p style="color: black; margin-top: 1rem; font-size: 0.875rem;">No item usage recorded for this bill.</p>`;
+                }
+
+                return `
+                    <div class="bill-card">
+                        <div class="bill-header">
+                            <div class="bill-title">${formatMonthYear(bill.month)} - ${bill.apartmentName || 'Apartment'} (Floor ${bill.apartmentFloor || '?'})</div>
+                            <div class="bill-status ${statusClass}">${statusText}</div>
+                        </div>
+                        <div class="bill-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Bill Month</span>
+                                <span class="detail-value">${bill.month || 'N/A'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total Cost</span>
+                                <span class="detail-value" style="font-weight: 700; color: #059669;">
+                                    ${bill.cost ? Math.round(bill.cost).toLocaleString('vi-VN') : '0'} VND
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total Items Tracked</span>
+                                <span class="detail-value">${bill.totalItems || 0}</span>
+                            </div>
+                        </div>
+                        <details style="margin-top: 1rem;">
+                            <summary style="cursor: pointer; color: #2563eb; font-weight: 500;">View Usage Details</summary>
+                            ${itemsHtml}
+                        </details>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

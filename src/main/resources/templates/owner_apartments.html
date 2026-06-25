@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>My Apartments</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .modal-content.wide {
+            max-width: 650px;
+        }
+    </style>
+</head>
+<body class="dashboard-page">
+
+    <!-- Top navigation -->
+    <nav class="navbar">
+        <div class="navbar__brand">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 21V5a2 2 0 0 1 2-2h6v18"/>
+                <path d="M11 3h8a2 2 0 0 1 2 2v16H11"/>
+            </svg>
+            <span>My Apartments</span>
+        </div>
+        <div class="navbar__right">
+            <button class="btn-logout" onclick="window.location.href='/dashboard'">
+                <span>Back to Dashboard</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="dashboard-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>My Blocks</h2>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Block</th>
+                        <th>Floor</th>
+                        <th>Area (sqm)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="apartmentsTableBody">
+                    <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Residents Modal -->
+    <div id="residentsModal" class="modal">
+        <div class="modal-content wide">
+            <div class="modal-header">
+                <h2 id="residentsModalTitle">View Residents</h2>
+                <button class="close-btn" onclick="closeResidentsModal()">&times;</button>
+            </div>
+            
+            <div class="table-container" style="margin-top: 0; max-height: 400px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>CCCD</th>
+                        </tr>
+                    </thead>
+                    <tbody id="residentsTableBody">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let apartments = [];
+        let currentApartmentId = null;
+
+        window.onload = () => {
+            fetchApartments();
+        };
+
+        // APARTMENTS
+        async function fetchApartments() {
+            try {
+                const res = await fetch('/api/owner/apartments');
+                if(res.ok) {
+                    apartments = await res.json();
+                    const tbody = document.getElementById('apartmentsTableBody');
+                    tbody.innerHTML = '';
+                    
+                    if (apartments.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No apartments found.</td></tr>';
+                        return;
+                    }
+
+                    apartments.forEach(apt => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td style="font-weight: 600;">${apt.name}</td>
+                                <td>${apt.floor}</td>
+                                <td>${apt.area}</td>
+                                <td class="actions-cell">
+                                    <button class="btn-small btn-primary" onclick="openResidentsModal(${apt.id}, '${apt.name}')">View Residents</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    document.getElementById('apartmentsTableBody').innerHTML = '<tr><td colspan="4" style="text-align: center; color: red;">Failed to load apartments.</td></tr>';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // RESIDENTS MODAL
+        function openResidentsModal(aptId, blockName) {
+            currentApartmentId = aptId;
+            document.getElementById('residentsModalTitle').innerText = 'Residents - Block ' + blockName;
+            document.getElementById('residentsTableBody').innerHTML = '<tr><td colspan="2" style="text-align:center;">Loading...</td></tr>';
+            
+            document.getElementById('residentsModal').classList.add('active');
+            fetchResidents(aptId);
+        }
+
+        function closeResidentsModal() {
+            document.getElementById('residentsModal').classList.remove('active');
+            currentApartmentId = null;
+        }
+
+        async function fetchResidents(aptId) {
+            try {
+                // ApartmentController allows owner to fetch residents
+                const res = await fetch('/api/apartments/' + aptId + '/residents');
+                const tbody = document.getElementById('residentsTableBody');
+                if(res.ok) {
+                    const residents = await res.json();
+                    tbody.innerHTML = '';
+                    if (residents.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No residents found in this block.</td></tr>';
+                        return;
+                    }
+                    residents.forEach(r => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${r.name}</td>
+                                <td>${r.cccd}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: red;">Error loading residents.</td></tr>';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+</html>
