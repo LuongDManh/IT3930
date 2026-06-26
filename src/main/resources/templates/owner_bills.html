@@ -104,6 +104,20 @@
             border-radius: 8px;
             border: 1px dashed #ccc;
         }
+        .pay-button {
+            padding: 0.55rem 1rem;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .receipt-note {
+            color: #166534;
+            font-size: 0.875rem;
+            margin-top: 0.75rem;
+        }
     </style>
 </head>
 <body class="dashboard-page">
@@ -319,14 +333,36 @@
                                 <span class="detail-value">${bill.totalItems || 0}</span>
                             </div>
                         </div>
-                        <details style="margin-top: 1rem;">
-                            <summary style="cursor: pointer; color: #2563eb; font-weight: 500;">View Usage Details</summary>
-                            ${itemsHtml}
-                        </details>
-                    </div>
-                `;
-            }).join('');
-        }
-    </script>
+	                        <details style="margin-top: 1rem;">
+	                            <summary style="cursor: pointer; color: #2563eb; font-weight: 500;">View Usage Details</summary>
+	                            ${itemsHtml}
+	                        </details>
+                            ${bill.isDone ? `
+                                <div class="receipt-note">Paid${bill.paymentReference ? ' - Receipt ' + bill.paymentReference : ''}</div>
+                            ` : `
+                                <button class="pay-button" style="margin-top: 1rem;" onclick="payBill(${bill.billId})">Pay Bill</button>
+                            `}
+	                    </div>
+	                `;
+	            }).join('');
+	        }
+
+            async function payBill(billId) {
+                if (!confirm('This is a simulated payment for the project demo. Continue?')) return;
+                try {
+                    const res = await fetch('/api/owner/bills/' + billId + '/pay', { method: 'POST' });
+                    if (!res.ok) {
+                        alert('Payment failed: ' + await res.text());
+                        return;
+                    }
+                    const receipt = await res.json();
+                    alert('Payment simulated successfully. Receipt: ' + receipt.paymentReference);
+                    await fetchBills();
+                } catch (e) {
+                    console.error(e);
+                    alert('Payment failed.');
+                }
+            }
+	    </script>
 </body>
 </html>

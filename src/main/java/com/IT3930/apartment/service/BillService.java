@@ -14,9 +14,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class BillService {
@@ -137,6 +141,28 @@ public class BillService {
         }
         
         return billRepository.save(existingBill);
+    }
+
+    @Transactional
+    public Map<String, Object> payBill(Long ownerId, Long billId) {
+        Bill bill = getBillById(billId);
+        if (bill.getApartment().getOwner() == null || !bill.getApartment().getOwner().getId().equals(ownerId)) {
+            throw new IllegalArgumentException("You can only pay bills for your own apartment.");
+        }
+        if (!bill.isDone()) {
+            bill.setDone(true);
+            bill.setPaymentReference("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+            bill.setPaidAt(LocalDateTime.now());
+            billRepository.save(bill);
+        }
+
+        Map<String, Object> receipt = new HashMap<>();
+        receipt.put("billId", bill.getId());
+        receipt.put("amount", bill.getCost());
+        receipt.put("paymentReference", bill.getPaymentReference());
+        receipt.put("paidAt", bill.getPaidAt());
+        receipt.put("message", "Fake payment completed successfully.");
+        return receipt;
     }
 
     // --- DELETE ---

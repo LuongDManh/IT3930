@@ -45,8 +45,8 @@
             <h3 style="color: var(--accent-warning)">Dynamic Tasks (Not Done)</h3>
             <div class="table-container">
                 <table>
-                    <thead><tr><th>Title</th><th>Description</th></tr></thead>
-                    <tbody id="dynamicNotDoneTasksBody"><tr><td colspan="2" style="text-align: center;">Loading...</td></tr></tbody>
+                    <thead><tr><th>Title</th><th>Description</th><th>Action</th></tr></thead>
+                    <tbody id="dynamicNotDoneTasksBody"><tr><td colspan="3" style="text-align: center;">Loading...</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -90,16 +90,29 @@
 
         function renderTable(tbodyId, taskList) {
             const tbody = document.getElementById(tbodyId);
+            const hasAction = tbodyId === 'dynamicNotDoneTasksBody';
+            const colCount = hasAction ? 3 : 2;
             if (taskList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" style="text-align: center;">No tasks found.</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align: center;">No tasks found.</td></tr>`;
                 return;
             }
             tbody.innerHTML = taskList.map(task => `
                 <tr>
                     <td style="font-weight: 600;">${task.title}</td>
                     <td>${task.description || ''}</td>
+                    ${hasAction ? `<td><button class="btn-login" style="width: auto; padding: 0.45rem 0.85rem;" onclick="completeTask(${task.id})">Complete</button></td>` : ''}
                 </tr>
             `).join('');
+        }
+
+        async function completeTask(id) {
+            if (!confirm('Mark this task as completed?')) return;
+            const res = await fetch('/api/staff/tasks/' + id + '/complete', { method: 'PUT' });
+            if (res.ok) {
+                fetchTasks();
+            } else {
+                alert('Failed to complete task: ' + await res.text());
+            }
         }
     </script>
 </body>

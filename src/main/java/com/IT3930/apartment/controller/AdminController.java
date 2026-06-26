@@ -5,6 +5,7 @@ import com.IT3930.apartment.dto.AccountResponseDTO;
 import com.IT3930.apartment.dto.AccountAdminUpdateDTO;
 import com.IT3930.apartment.dto.ApartmentDTO;
 import com.IT3930.apartment.dto.AssignApartmentsRequestDTO;
+import com.IT3930.apartment.dto.ServiceRequestDTO;
 import com.IT3930.apartment.model.account.Account;
 import com.IT3930.apartment.service.AccountService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ public class AdminController {
 
     @Autowired
     private BillUseService billUseService;
+
+    @Autowired
+    private com.IT3930.apartment.service.ServiceRequestService serviceRequestService;
 
     // Only admins should access this, which can be protected by Spring Security
     // e.g. @PreAuthorize("hasRole('ADMIN')") or via SecurityConfig matchers
@@ -311,6 +315,46 @@ public class AdminController {
         try {
             taskService.deleteTask(id);
             return ResponseEntity.ok("Task deleted successfully.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // --- SERVICE REQUESTS ---
+    @GetMapping("/service-requests")
+    public ResponseEntity<?> getAllServiceRequests() {
+        try {
+            List<ServiceRequestDTO> requests = serviceRequestService.getAllRequests()
+                    .stream()
+                    .map(ServiceRequestDTO::new)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(requests);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/service-requests/{id}/assign")
+    public ResponseEntity<?> assignServiceRequest(
+            @PathVariable Long id,
+            @RequestBody ServiceRequestDTO requestDTO) {
+        try {
+            return ResponseEntity.ok(new ServiceRequestDTO(
+                    serviceRequestService.assignRequest(id, requestDTO.getStaffIds())
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/service-requests/{id}/status")
+    public ResponseEntity<?> updateServiceRequestStatus(
+            @PathVariable Long id,
+            @RequestBody ServiceRequestDTO requestDTO) {
+        try {
+            return ResponseEntity.ok(new ServiceRequestDTO(
+                    serviceRequestService.updateStatus(id, requestDTO.getStatus())
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

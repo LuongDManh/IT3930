@@ -3,6 +3,7 @@ package com.IT3930.apartment.model.bill;
 import com.IT3930.apartment.model.Apartment;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 
 @Entity
@@ -21,6 +22,12 @@ public class Bill {
 
     @Column(name = "is_done", nullable = false)
     private boolean isDone;
+
+    @Column(name = "payment_reference")
+    private String paymentReference;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "apartment_id", nullable = false)
@@ -66,6 +73,22 @@ public class Bill {
 
     public void setDone(boolean done) {
         isDone = done;
+    }
+
+    public String getPaymentReference() {
+        return paymentReference;
+    }
+
+    public void setPaymentReference(String paymentReference) {
+        this.paymentReference = paymentReference;
+    }
+
+    public LocalDateTime getPaidAt() {
+        return paidAt;
+    }
+
+    public void setPaidAt(LocalDateTime paidAt) {
+        this.paidAt = paidAt;
     }
 
     public Apartment getApartment() {

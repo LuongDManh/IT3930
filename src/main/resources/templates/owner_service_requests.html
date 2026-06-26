@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Requests</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; }
+        .request-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .request-head { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+        .status { padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+        .PENDING { background: #fef3c7; color: #92400e; }
+        .ASSIGNED { background: #dbeafe; color: #1e40af; }
+        .DONE { background: #dcfce7; color: #166534; }
+        .REJECTED { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body class="dashboard-page">
+<nav class="navbar">
+    <div class="navbar__brand"><span>Service Requests</span></div>
+    <div class="navbar__right">
+        <button class="btn-logout" onclick="window.location.href='/dashboard'"><span>Back to Dashboard</span></button>
+    </div>
+</nav>
+
+<main class="dashboard-content">
+    <div class="toolbar">
+        <div>
+            <h2>My Service Requests</h2>
+            <p>Create requests for utilities or apartment services and follow their status.</p>
+        </div>
+        <button class="btn-login" style="width: auto; padding: 0.6rem 1rem;" onclick="openRequestModal()">New Request</button>
+    </div>
+    <div id="requestsContainer"><div class="request-card">Loading...</div></div>
+</main>
+
+<div id="requestModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>New Service Request</h2>
+            <button class="close-btn" onclick="closeRequestModal()">&times;</button>
+        </div>
+        <form id="requestForm" onsubmit="createRequest(event)">
+            <div class="form-group">
+                <label>Apartment</label>
+                <div class="input-wrapper">
+                    <select id="apartmentId" required style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 4px;"></select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Service</label>
+                <div class="input-wrapper">
+                    <select id="serviceName" required style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 4px;">
+                        <option value="Cleaning">Cleaning</option>
+                        <option value="Repair">Repair</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="Parking support">Parking support</option>
+                        <option value="Other utility">Other utility</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Description</label>
+                <div class="input-wrapper">
+                    <textarea id="description" required style="width: 100%; min-height: 100px; padding: 0.7rem; border: 1px solid var(--border); border-radius: 4px;"></textarea>
+                </div>
+            </div>
+            <button type="submit" class="btn-login" style="margin-top: 1.5rem;">Send Request</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    let apartments = [];
+
+    window.onload = async () => {
+        await fetchApartments();
+        await fetchRequests();
+    };
+
+    async function fetchApartments() {
+        const res = await fetch('/api/owner/apartments');
+        if (res.ok) {
+            apartments = await res.json();
+            document.getElementById('apartmentId').innerHTML = apartments
+                .map(apt => `<option value="${apt.id}">${apt.name} - Floor ${apt.floor}</option>`)
+                .join('');
+        }
+    }
+
+    async function fetchRequests() {
+        const res = await fetch('/api/owner/service-requests');
+        const container = document.getElementById('requestsContainer');
+        if (!res.ok) {
+            container.innerHTML = '<div class="request-card">Failed to load requests.</div>';
+            return;
+        }
+        const requests = await res.json();
+        if (requests.length === 0) {
+            container.innerHTML = '<div class="request-card">No service requests yet.</div>';
+            return;
+        }
+        container.innerHTML = requests.map(req => `
+            <div class="request-card">
+                <div class="request-head">
+                    <div>
+                        <h3>${req.serviceName}</h3>
+                        <p>${req.apartmentName || 'Apartment'} - Floor ${req.apartmentFloor || '?'}</p>
+                    </div>
+                    <span class="status ${req.status}">${req.status}</span>
+                </div>
+                <p>${req.description || ''}</p>
+                <p style="margin-top: 0.75rem; color: #64748b;">Assigned staff: ${(req.staffNames || []).join(', ') || 'Not assigned yet'}</p>
+            </div>
+        `).join('');
+    }
+
+    function openRequestModal() { document.getElementById('requestModal').classList.add('active'); }
+    function closeRequestModal() { document.getElementById('requestModal').classList.remove('active'); }
+
+    async function createRequest(e) {
+        e.preventDefault();
+        const apartmentId = parseInt(document.getElementById('apartmentId').value);
+        const serviceName = document.getElementById('serviceName').value;
+        const description = document.getElementById('description').value;
+        const res = await fetch('/api/owner/service-requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apartmentId, serviceName, description })
+        });
+        if (res.ok) {
+            document.getElementById('requestForm').reset();
+            closeRequestModal();
+            fetchRequests();
+        } else {
+            alert('Failed to create request: ' + await res.text());
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,14 +1,20 @@
 package com.IT3930.apartment.controller;
 
 import com.IT3930.apartment.dto.ApartmentDTO;
+import com.IT3930.apartment.dto.ServiceRequestDTO;
 import com.IT3930.apartment.security.CustomUserDetails;
 import com.IT3930.apartment.service.AccountService;
+import com.IT3930.apartment.service.BillService;
+import com.IT3930.apartment.service.ServiceRequestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,6 +25,12 @@ public class OwnerController {
 
     @Autowired
     private AccountService accountService;
+
+    @Autowired
+    private ServiceRequestService serviceRequestService;
+
+    @Autowired
+    private BillService billService;
 
     @GetMapping("/apartments")
     public ResponseEntity<?> getMyApartments(@AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -66,6 +78,8 @@ public class OwnerController {
                 billMap.put("cost", bill.getCost());
                 billMap.put("isDone", bill.isDone());
                 billMap.put("month", bill.getMonth());
+                billMap.put("paymentReference", bill.getPaymentReference());
+                billMap.put("paidAt", bill.getPaidAt());
 
                 List<com.IT3930.apartment.model.bill.BillUse> uses = usesByBill.getOrDefault(bill.getId(), new java.util.ArrayList<>());
                 List<java.util.Map<String, Object>> items = new java.util.ArrayList<>();
@@ -82,6 +96,43 @@ public class OwnerController {
             }
 
             return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/bills/{id}/pay")
+    public ResponseEntity<?> payBill(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            return ResponseEntity.ok(billService.payBill(userDetails.getAccount().getId(), id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/service-requests")
+    public ResponseEntity<?> getMyServiceRequests(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            List<ServiceRequestDTO> requests = serviceRequestService.getRequestsByOwner(userDetails.getAccount().getId())
+                    .stream()
+                    .map(ServiceRequestDTO::new)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(requests);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/service-requests")
+    public ResponseEntity<?> createServiceRequest(
+            @RequestBody ServiceRequestDTO requestDTO,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            return ResponseEntity.ok(new ServiceRequestDTO(
+                    serviceRequestService.createRequest(userDetails.getAccount(), requestDTO)
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

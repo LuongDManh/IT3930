@@ -83,6 +83,13 @@ public class DashboardController {
         return "admin_bill_items";
     }
 
+    @GetMapping("/admin/service-requests")
+    public String adminServiceRequests(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
+        model.addAttribute("account", userDetails.getAccount());
+        model.addAttribute("role", "Admin");
+        return "admin_service_requests";
+    }
+
     @GetMapping("/owner/apartments")
     public String ownerApartments(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
         model.addAttribute("account", userDetails.getAccount());
@@ -109,5 +116,12 @@ public class DashboardController {
         model.addAttribute("account", userDetails.getAccount());
         model.addAttribute("role", "Owner");
         return "owner_bills";
+    }
+
+    @GetMapping("/owner/service-requests")
+    public String ownerServiceRequests(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
+        model.addAttribute("account", userDetails.getAccount());
+        model.addAttribute("role", "Owner");
+        return "owner_service_requests";
     }
 }

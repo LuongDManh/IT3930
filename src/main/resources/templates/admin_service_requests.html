@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Service Requests</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; }
+        .staff-select { min-width: 220px; min-height: 78px; border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem; }
+        .status-select { border: 1px solid var(--border); border-radius: 4px; padding: 0.45rem; }
+    </style>
+</head>
+<body class="dashboard-page">
+<nav class="navbar">
+    <div class="navbar__brand"><span>Manage Service Requests</span></div>
+    <div class="navbar__right">
+        <button class="btn-logout" onclick="window.location.href='/dashboard'"><span>Back to Dashboard</span></button>
+    </div>
+</nav>
+
+<main class="dashboard-content">
+    <div class="toolbar">
+        <div>
+            <h2>Service Requests</h2>
+            <p>Assign staff, create dynamic tasks, and update request status.</p>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+            <tr>
+                <th>Service</th>
+                <th>Apartment</th>
+                <th>Owner</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Staff</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="requestsBody"><tr><td colspan="7" style="text-align: center;">Loading...</td></tr></tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+    let requests = [];
+    let staffs = [];
+
+    window.onload = async () => {
+        await fetchStaffs();
+        await fetchRequests();
+    };
+
+    async function fetchStaffs() {
+        const res = await fetch('/api/admin/accounts');
+        if (res.ok) {
+            const accounts = await res.json();
+            staffs = accounts.filter(acc => acc.role === 'STAFF');
+        }
+    }
+
+    async function fetchRequests() {
+        const res = await fetch('/api/admin/service-requests');
+        if (!res.ok) {
+            document.getElementById('requestsBody').innerHTML = '<tr><td colspan="7" style="text-align: center;">Failed to load requests.</td></tr>';
+            return;
+        }
+        requests = await res.json();
+        renderRequests();
+    }
+
+    function renderRequests() {
+        const tbody = document.getElementById('requestsBody');
+        if (requests.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No requests found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = requests.map(req => `
+            <tr>
+                <td style="font-weight: 600;">${req.serviceName}</td>
+                <td>${req.apartmentName || ''}<br><small>Floor ${req.apartmentFloor || '?'}</small></td>
+                <td>${req.ownerEmail || ''}</td>
+                <td>${req.description || ''}</td>
+                <td>
+                    <select id="status-${req.id}" class="status-select">
+                        ${['PENDING', 'ASSIGNED', 'DONE', 'REJECTED'].map(status => `<option value="${status}" ${req.status === status ? 'selected' : ''}>${status}</option>`).join('')}
+                    </select>
+                </td>
+                <td>
+                    <select id="staff-${req.id}" class="staff-select" multiple>
+                        ${staffs.map(staff => `<option value="${staff.id}" ${(req.staffIds || []).includes(staff.id) ? 'selected' : ''}>${staff.email}</option>`).join('')}
+                    </select>
+                </td>
+                <td>
+                    <button class="btn-login" style="width: auto; padding: 0.45rem 0.8rem;" onclick="assignRequest(${req.id})">Assign</button>
+                    <button class="btn-login" style="width: auto; padding: 0.45rem 0.8rem; margin-top: 0.4rem;" onclick="updateStatus(${req.id})">Save Status</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function assignRequest(id) {
+        const staffSelect = document.getElementById('staff-' + id);
+        const staffIds = Array.from(staffSelect.selectedOptions).map(option => parseInt(option.value));
+        const res = await fetch('/api/admin/service-requests/' + id + '/assign', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ staffIds })
+        });
+        if (res.ok) {
+            fetchRequests();
+        } else {
+            alert('Failed to assign request: ' + await res.text());
+        }
+    }
+
+    async function updateStatus(id) {
+        const status = document.getElementById('status-' + id).value;
+        const res = await fetch('/api/admin/service-requests/' + id + '/status', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        if (res.ok) {
+            fetchRequests();
+        } else {
+            alert('Failed to update status: ' + await res.text());
+        }
+    }
+</script>
+</body>
+</html>
