@@ -21,6 +21,20 @@
 
 <main class="dashboard-content">
     <div class="toolbar">
+        <div><h2>Service Catalog</h2><p>Manage fixed services available to owners.</p></div>
+        <button class="btn-login" style="width:auto;padding:.6rem 1rem" onclick="saveAmenity()">Add Service</button>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem">
+        <input id="amenityName" placeholder="Service name">
+        <input id="amenityPrice" type="number" min="0" placeholder="Unit price">
+        <input id="amenityQuantity" type="number" min="0" placeholder="Quantity">
+        <label><input id="amenityActive" type="checkbox" checked> Active</label>
+    </div>
+    <div class="table-container" style="margin-bottom:2rem">
+        <table><thead><tr><th>Name</th><th>Unit price</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="amenitiesBody"></tbody></table>
+    </div>
+    <div class="toolbar">
         <div>
             <h2>Service Requests</h2>
             <p>Assign staff, create dynamic tasks, and update request status.</p>
@@ -47,11 +61,59 @@
 <script>
     let requests = [];
     let staffs = [];
+    let amenities = [];
 
     window.onload = async () => {
         await fetchStaffs();
+        await fetchAmenities();
         await fetchRequests();
     };
+
+    async function fetchAmenities() {
+        const res = await fetch('/api/admin/amenities');
+        if (!res.ok) return;
+        amenities = await res.json();
+        document.getElementById('amenitiesBody').innerHTML = amenities.map(item => `
+            <tr><td>${item.name}</td><td>${Number(item.unitPrice).toLocaleString('vi-VN')} VND</td>
+            <td>${item.quantity}</td><td>${item.active ? 'Active' : 'Inactive'}</td>
+            <td><button class="btn-small btn-primary" onclick="editAmenity(${item.id})">Edit</button>
+            <button class="btn-small btn-danger" onclick="deleteAmenity(${item.id})">Delete</button></td></tr>`).join('');
+    }
+
+    async function saveAmenity(id = null) {
+        const body = {
+            name: document.getElementById('amenityName').value,
+            unitPrice: Number(document.getElementById('amenityPrice').value || 0),
+            quantity: Number(document.getElementById('amenityQuantity').value || 0),
+            active: document.getElementById('amenityActive').checked
+        };
+        const res = await fetch('/api/admin/amenities' + (id ? '/' + id : ''), {
+            method: id ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+        if (!res.ok) return alert(await res.text());
+        document.getElementById('amenityName').value = '';
+        fetchAmenities();
+    }
+
+    function editAmenity(id) {
+        const item = amenities.find(value => value.id === id);
+        document.getElementById('amenityName').value = item.name;
+        document.getElementById('amenityPrice').value = item.unitPrice;
+        document.getElementById('amenityQuantity').value = item.quantity;
+        document.getElementById('amenityActive').checked = item.active;
+        const name = prompt('Service name', item.name);
+        if (name !== null) {
+            document.getElementById('amenityName').value = name;
+            saveAmenity(id);
+        }
+    }
+
+    async function deleteAmenity(id) {
+        if (!confirm('Delete this service?')) return;
+        const res = await fetch('/api/admin/amenities/' + id, {method:'DELETE'});
+        if (!res.ok) return alert(await res.text());
+        fetchAmenities();
+    }
 
     async function fetchStaffs() {
         const res = await fetch('/api/admin/accounts');

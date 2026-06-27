@@ -28,6 +28,27 @@ public class ApartmentService {
                 .orElseThrow(() -> new RuntimeException("Apartment not found"));
     }
 
+    @Transactional
+    public Apartment saveApartment(Long id, String name, String floor, Double area) {
+        if (name == null || name.isBlank() || floor == null || floor.isBlank() || area == null || area <= 0) {
+            throw new IllegalArgumentException("Name, floor and a positive area are required.");
+        }
+        Apartment apartment = id == null ? new Apartment() : getApartmentById(id);
+        apartment.setName(name.trim());
+        apartment.setFloor(floor.trim());
+        apartment.setArea(area);
+        return apartmentRepository.save(apartment);
+    }
+
+    @Transactional
+    public void deleteApartment(Long id) {
+        Apartment apartment = getApartmentById(id);
+        if (apartment.getOwner() != null || !residentRepository.findByApartmentId(id).isEmpty()) {
+            throw new IllegalStateException("Remove the owner and residents before deleting this apartment.");
+        }
+        apartmentRepository.delete(apartment);
+    }
+
     public List<Resident> getResidentsByApartment(Long apartmentId) {
         // verify apartment exists
         getApartmentById(apartmentId);

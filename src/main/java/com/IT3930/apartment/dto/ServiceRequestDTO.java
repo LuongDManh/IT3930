@@ -7,6 +7,7 @@ import java.util.List;
 
 public class ServiceRequestDTO {
     private Long id;
+    private Long amenityId;
     private String serviceName;
     private String description;
     private String status;
@@ -52,6 +53,8 @@ public class ServiceRequestDTO {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getAmenityId() { return amenityId; }
+    public void setAmenityId(Long amenityId) { this.amenityId = amenityId; }
     public String getServiceName() { return serviceName; }
     public void setServiceName(String serviceName) { this.serviceName = serviceName; }
     public String getDescription() { return description; }

@@ -32,6 +32,14 @@ public class OwnerController {
     @Autowired
     private BillService billService;
 
+    @Autowired
+    private com.IT3930.apartment.service.AmenityService amenityService;
+
+    @GetMapping("/amenities")
+    public ResponseEntity<?> getAvailableAmenities() {
+        return ResponseEntity.ok(amenityService.getActive());
+    }
+
     @GetMapping("/apartments")
     public ResponseEntity<?> getMyApartments(@AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
@@ -80,6 +88,7 @@ public class OwnerController {
                 billMap.put("month", bill.getMonth());
                 billMap.put("paymentReference", bill.getPaymentReference());
                 billMap.put("paidAt", bill.getPaidAt());
+                billMap.put("dueDate", bill.getDueDate());
 
                 List<com.IT3930.apartment.model.bill.BillUse> uses = usesByBill.getOrDefault(bill.getId(), new java.util.ArrayList<>());
                 List<java.util.Map<String, Object>> items = new java.util.ArrayList<>();
@@ -107,6 +116,32 @@ public class OwnerController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             return ResponseEntity.ok(billService.payBill(userDetails.getAccount().getId(), id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping(value = "/bills/{id}/receipt", produces = "text/plain")
+    public ResponseEntity<?> downloadReceipt(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            com.IT3930.apartment.model.bill.Bill bill = billService.getBillById(id);
+            if (bill.getApartment().getOwner() == null
+                    || !bill.getApartment().getOwner().getId().equals(userDetails.getAccount().getId())
+                    || !bill.isDone()) {
+                return ResponseEntity.status(403).body("Receipt is only available for your paid bill.");
+            }
+            String receipt = "APARTMENT PAYMENT RECEIPT\n"
+                    + "Reference: " + bill.getPaymentReference() + "\n"
+                    + "Apartment: " + bill.getApartment().getName() + "\n"
+                    + "Month: " + bill.getMonth() + "\n"
+                    + "Amount: " + bill.getCost() + "\n"
+                    + "Paid at: " + bill.getPaidAt() + "\n";
+            return ResponseEntity.ok()
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=receipt-" + bill.getId() + ".txt")
+                    .body(receipt);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

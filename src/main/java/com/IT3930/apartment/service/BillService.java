@@ -50,7 +50,7 @@ public class BillService {
     // --- CREATE ---
     // 1. Initialize Bill with 0 quantity for all active BillItems
     @Transactional
-    public Bill createBill(Long apartmentId, YearMonth month) {
+    public Bill createBill(Long apartmentId, YearMonth month, java.time.LocalDate dueDate) {
         Apartment apartment = apartmentRepository.findById(apartmentId)
                 .orElseThrow(() -> new RuntimeException("Apartment not found: " + apartmentId));
 
@@ -66,6 +66,7 @@ public class BillService {
             bill.setDone(false);
             bill.setCost(BigDecimal.ZERO);
             bill.setMonth(targetMonth);
+            bill.setDueDate(dueDate);
             
             bill = billRepository.save(bill);
 
@@ -190,7 +191,7 @@ public class BillService {
 
     // 3. Create bills for all active apartments
     @Transactional
-    public List<Bill> createBillsForAllApartments(YearMonth month) {
+    public List<Bill> createBillsForAllApartments(YearMonth month, java.time.LocalDate dueDate) {
         List<Apartment> allApartments = apartmentRepository.findAll();
         List<Bill> createdBills = new ArrayList<>();
         YearMonth targetMonth = (month != null) ? month : YearMonth.now();
@@ -202,6 +203,7 @@ public class BillService {
                 bill.setDone(false);
                 bill.setCost(BigDecimal.ZERO);
                 bill.setMonth(targetMonth);
+                bill.setDueDate(dueDate);
                 
                 bill = billRepository.save(bill);
 

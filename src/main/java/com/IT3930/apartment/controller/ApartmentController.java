@@ -9,6 +9,8 @@ import com.IT3930.apartment.security.CustomUserDetails;
 import com.IT3930.apartment.service.ApartmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,6 +34,56 @@ public class ApartmentController {
                 .map(ApartmentDetailDTO::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(apartments);
+    }
+
+    @PostMapping
+    public ResponseEntity<?> createApartment(@RequestBody com.IT3930.apartment.dto.ApartmentDTO dto) {
+        try {
+            return ResponseEntity.ok(new ApartmentDetailDTO(
+                    apartmentService.saveApartment(null, dto.getName(), dto.getFloor(), dto.getArea())));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateApartment(@PathVariable Long id, @RequestBody com.IT3930.apartment.dto.ApartmentDTO dto) {
+        try {
+            return ResponseEntity.ok(new ApartmentDetailDTO(
+                    apartmentService.saveApartment(id, dto.getName(), dto.getFloor(), dto.getArea())));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteApartment(@PathVariable Long id) {
+        try {
+            apartmentService.deleteApartment(id);
+            return ResponseEntity.ok("Apartment deleted.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping(value = "/export", produces = "text/csv")
+    public ResponseEntity<String> exportApartments() {
+        StringBuilder csv = new StringBuilder("ID,Apartment,Floor,Area,Owner,Residents\n");
+        for (Apartment apartment : apartmentService.getAllApartments()) {
+            String owner = apartment.getOwner() == null ? "" : apartment.getOwner().getEmail();
+            csv.append(apartment.getId()).append(',').append(csv(apartment.getName())).append(',')
+                    .append(csv(apartment.getFloor())).append(',').append(apartment.getArea()).append(',')
+                    .append(csv(owner)).append(',').append(apartmentService.getResidentsByApartment(apartment.getId()).size())
+                    .append('\n');
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=apartments.csv")
+                .contentType(new MediaType("text", "csv"))
+                .body(csv.toString());
+    }
+
+    private String csv(String value) {
+        return "\"" + (value == null ? "" : value.replace("\"", "\"\"")) + "\"";
     }
 
     @GetMapping("/{id}")

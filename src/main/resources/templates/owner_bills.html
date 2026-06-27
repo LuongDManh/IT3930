@@ -332,6 +332,10 @@
                                 <span class="detail-label">Total Items Tracked</span>
                                 <span class="detail-value">${bill.totalItems || 0}</span>
                             </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Due Date</span>
+                                <span class="detail-value">${bill.dueDate || 'N/A'}</span>
+                            </div>
                         </div>
 	                        <details style="margin-top: 1rem;">
 	                            <summary style="cursor: pointer; color: #2563eb; font-weight: 500;">View Usage Details</summary>
@@ -339,6 +343,7 @@
 	                        </details>
                             ${bill.isDone ? `
                                 <div class="receipt-note">Paid${bill.paymentReference ? ' - Receipt ' + bill.paymentReference : ''}</div>
+                                <button class="pay-button" style="margin-top:.75rem" onclick="window.location.href='/api/owner/bills/${bill.billId}/receipt'">Download Receipt</button>
                             ` : `
                                 <button class="pay-button" style="margin-top: 1rem;" onclick="payBill(${bill.billId})">Pay Bill</button>
                             `}

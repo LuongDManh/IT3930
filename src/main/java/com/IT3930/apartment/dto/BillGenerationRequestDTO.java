@@ -1,12 +1,14 @@
 package com.IT3930.apartment.dto;
 
 import java.time.YearMonth;
+import java.time.LocalDate;
 import java.util.List;
 
 public class BillGenerationRequestDTO {
     private Long apartmentId;
     private YearMonth month;
     private List<ItemUsageDTO> usages;
+    private LocalDate dueDate;
 
     public BillGenerationRequestDTO() {
     }
@@ -40,4 +42,7 @@ public class BillGenerationRequestDTO {
     public void setUsages(List<ItemUsageDTO> usages) {
         this.usages = usages;
     }
+
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
 }

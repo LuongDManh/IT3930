@@ -42,6 +42,9 @@ public class AdminController {
     @Autowired
     private com.IT3930.apartment.service.ServiceRequestService serviceRequestService;
 
+    @Autowired
+    private com.IT3930.apartment.service.AmenityService amenityService;
+
     // Only admins should access this, which can be protected by Spring Security
     // e.g. @PreAuthorize("hasRole('ADMIN')") or via SecurityConfig matchers
     @PostMapping("/accounts")
@@ -147,7 +150,7 @@ public class AdminController {
     @PostMapping("/bills")
     public ResponseEntity<?> createBill(@RequestBody BillGenerationRequestDTO request) {
         try {
-            Bill newBill = billService.createBill(request.getApartmentId(), request.getMonth());
+            Bill newBill = billService.createBill(request.getApartmentId(), request.getMonth(), request.getDueDate());
             return ResponseEntity.ok(newBill);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -157,7 +160,7 @@ public class AdminController {
     @PostMapping("/bills/bulk")
     public ResponseEntity<?> createBillsForAllApartments(@RequestBody BillGenerationRequestDTO request) {
         try {
-            List<Bill> newBills = billService.createBillsForAllApartments(request.getMonth());
+            List<Bill> newBills = billService.createBillsForAllApartments(request.getMonth(), request.getDueDate());
             return ResponseEntity.ok(newBills);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -321,6 +324,35 @@ public class AdminController {
     }
 
     // --- SERVICE REQUESTS ---
+    @GetMapping("/amenities")
+    public ResponseEntity<?> getAmenities() {
+        return ResponseEntity.ok(amenityService.getAll());
+    }
+
+    @PostMapping("/amenities")
+    public ResponseEntity<?> createAmenity(@RequestBody com.IT3930.apartment.model.Amenity amenity) {
+        try {
+            return ResponseEntity.ok(amenityService.save(null, amenity));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/amenities/{id}")
+    public ResponseEntity<?> updateAmenity(@PathVariable Long id, @RequestBody com.IT3930.apartment.model.Amenity amenity) {
+        try {
+            return ResponseEntity.ok(amenityService.save(id, amenity));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/amenities/{id}")
+    public ResponseEntity<?> deleteAmenity(@PathVariable Long id) {
+        amenityService.delete(id);
+        return ResponseEntity.ok("Service deleted.");
+    }
+
     @GetMapping("/service-requests")
     public ResponseEntity<?> getAllServiceRequests() {
         try {

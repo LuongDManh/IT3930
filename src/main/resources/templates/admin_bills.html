@@ -179,6 +179,10 @@
                         <input type="month" id="createMonth" required>
                     </div>
                 </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label>Due Date</label>
+                    <div class="input-wrapper"><input type="date" id="createDueDate" required></div>
+                </div>
                 <button type="submit" id="generateBillsBtn" class="btn-login" style="margin-top: 1.5rem;">Generate</button>
             </form>
         </div>
@@ -347,6 +351,7 @@
         async function createBill(e) {
             e.preventDefault();
             const month = document.getElementById('createMonth').value;
+            const dueDate = document.getElementById('createDueDate').value;
             const mode = document.getElementById('createMode').value;
             const apartmentId = document.getElementById('createApartmentId').value;
             const submitBtn = document.getElementById('generateBillsBtn');
@@ -359,7 +364,7 @@
 
             try {
                 let url = '/api/admin/bills/bulk';
-                let bodyData = { month };
+                let bodyData = { month, dueDate };
                 if (mode === 'single') {
                     if (!apartmentId) {
                         alert('Apartment ID is required for single generation');
@@ -370,7 +375,7 @@
                         return;
                     }
                     url = '/api/admin/bills';
-                    bodyData = { month, apartmentId };
+                    bodyData = { month, dueDate, apartmentId };
                 }
 
                 const response = await fetch(url, {

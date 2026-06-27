@@ -31,7 +31,10 @@
     <main class="dashboard-content">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h2>All Blocks</h2>
-            <!-- Base info is view-only, so no Add Apartment button here -->
+            <div style="display:flex;gap:.5rem">
+                <button class="btn-small btn-primary" onclick="window.location.href='/api/apartments/export'">Export CSV</button>
+                <button class="btn-small btn-primary" onclick="openApartmentModal()">Add Apartment</button>
+            </div>
         </div>
 
         <div class="table-container">
@@ -51,6 +54,20 @@
             </table>
         </div>
     </main>
+
+    <div id="apartmentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 id="apartmentModalTitle">Add Apartment</h2>
+                <button class="close-btn" onclick="closeApartmentModal()">&times;</button></div>
+            <form onsubmit="saveApartment(event)">
+                <input type="hidden" id="editApartmentId">
+                <div class="form-group"><label>Apartment</label><input id="apartmentName" required></div>
+                <div class="form-group"><label>Floor</label><input id="apartmentFloor" required></div>
+                <div class="form-group"><label>Area (sqm)</label><input id="apartmentArea" type="number" min="1" step=".1" required></div>
+                <button class="btn-login" style="margin-top:1rem">Save</button>
+            </form>
+        </div>
+    </div>
 
     <!-- Residents Modal -->
     <div id="residentsModal" class="modal">
@@ -159,6 +176,8 @@
                                 <td>${ownerDisplay}</td>
                                 <td class="actions-cell">
                                     <button class="btn-small btn-primary" onclick="openResidentsModal(${apt.id}, '${apt.name}')">Residents</button>
+                                    <button class="btn-small btn-primary" onclick="openApartmentModal(${apt.id})">Edit</button>
+                                    <button class="btn-small btn-danger" onclick="deleteApartment(${apt.id})">Delete</button>
                                 </td>
                             </tr>
                         `;
@@ -169,6 +188,43 @@
             } catch (e) {
                 console.error(e);
             }
+        }
+
+        function openApartmentModal(id = null) {
+            const apt = apartments.find(item => item.id === id);
+            document.getElementById('editApartmentId').value = id || '';
+            document.getElementById('apartmentName').value = apt ? apt.name : '';
+            document.getElementById('apartmentFloor').value = apt ? apt.floor : '';
+            document.getElementById('apartmentArea').value = apt ? apt.area : '';
+            document.getElementById('apartmentModalTitle').textContent = apt ? 'Edit Apartment' : 'Add Apartment';
+            document.getElementById('apartmentModal').classList.add('active');
+        }
+
+        function closeApartmentModal() {
+            document.getElementById('apartmentModal').classList.remove('active');
+        }
+
+        async function saveApartment(event) {
+            event.preventDefault();
+            const id = document.getElementById('editApartmentId').value;
+            const body = {
+                name: document.getElementById('apartmentName').value,
+                floor: document.getElementById('apartmentFloor').value,
+                area: Number(document.getElementById('apartmentArea').value)
+            };
+            const res = await fetch('/api/apartments' + (id ? '/' + id : ''), {
+                method: id ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+            });
+            if (!res.ok) return alert(await res.text());
+            closeApartmentModal();
+            fetchApartments();
+        }
+
+        async function deleteApartment(id) {
+            if (!confirm('Delete this apartment?')) return;
+            const res = await fetch('/api/apartments/' + id, {method:'DELETE'});
+            if (!res.ok) return alert(await res.text());
+            fetchApartments();
         }
 
         // RESIDENTS MODAL

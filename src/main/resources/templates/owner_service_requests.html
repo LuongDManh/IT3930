@@ -51,13 +51,7 @@
             <div class="form-group" style="margin-top: 1rem;">
                 <label>Service</label>
                 <div class="input-wrapper">
-                    <select id="serviceName" required style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 4px;">
-                        <option value="Cleaning">Cleaning</option>
-                        <option value="Repair">Repair</option>
-                        <option value="Maintenance">Maintenance</option>
-                        <option value="Parking support">Parking support</option>
-                        <option value="Other utility">Other utility</option>
-                    </select>
+                    <select id="amenityId" required style="width: 100%; padding: 0.7rem; border: 1px solid var(--border); border-radius: 4px;"></select>
                 </div>
             </div>
             <div class="form-group" style="margin-top: 1rem;">
@@ -73,9 +67,11 @@
 
 <script>
     let apartments = [];
+    let amenities = [];
 
     window.onload = async () => {
         await fetchApartments();
+        await fetchAmenities();
         await fetchRequests();
     };
 
@@ -85,6 +81,16 @@
             apartments = await res.json();
             document.getElementById('apartmentId').innerHTML = apartments
                 .map(apt => `<option value="${apt.id}">${apt.name} - Floor ${apt.floor}</option>`)
+                .join('');
+        }
+    }
+
+    async function fetchAmenities() {
+        const res = await fetch('/api/owner/amenities');
+        if (res.ok) {
+            amenities = await res.json();
+            document.getElementById('amenityId').innerHTML = amenities
+                .map(item => `<option value="${item.id}">${item.name} - ${Number(item.unitPrice).toLocaleString('vi-VN')} VND</option>`)
                 .join('');
         }
     }
@@ -122,12 +128,12 @@
     async function createRequest(e) {
         e.preventDefault();
         const apartmentId = parseInt(document.getElementById('apartmentId').value);
-        const serviceName = document.getElementById('serviceName').value;
+        const amenityId = parseInt(document.getElementById('amenityId').value);
         const description = document.getElementById('description').value;
         const res = await fetch('/api/owner/service-requests', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apartmentId, serviceName, description })
+            body: JSON.stringify({ apartmentId, amenityId, description })
         });
         if (res.ok) {
             document.getElementById('requestForm').reset();

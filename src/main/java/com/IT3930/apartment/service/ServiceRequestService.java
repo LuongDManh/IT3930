@@ -24,16 +24,19 @@ public class ServiceRequestService {
     private final ApartmentRepository apartmentRepository;
     private final StaffRepository staffRepository;
     private final TaskRepository taskRepository;
+    private final com.IT3930.apartment.repository.AmenityRepository amenityRepository;
 
     public ServiceRequestService(
             ServiceRequestRepository serviceRequestRepository,
             ApartmentRepository apartmentRepository,
             StaffRepository staffRepository,
-            TaskRepository taskRepository) {
+            TaskRepository taskRepository,
+            com.IT3930.apartment.repository.AmenityRepository amenityRepository) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.apartmentRepository = apartmentRepository;
         this.staffRepository = staffRepository;
         this.taskRepository = taskRepository;
+        this.amenityRepository = amenityRepository;
     }
 
     public List<ServiceRequest> getAllRequests() {
@@ -60,7 +63,17 @@ public class ServiceRequestService {
         ServiceRequest request = new ServiceRequest();
         request.setApartment(apartment);
         request.setOwner(owner);
-        request.setServiceName(requestDTO.getServiceName());
+        String serviceName = requestDTO.getServiceName();
+        if (requestDTO.getAmenityId() != null) {
+            serviceName = amenityRepository.findById(requestDTO.getAmenityId())
+                    .filter(com.IT3930.apartment.model.Amenity::isActive)
+                    .orElseThrow(() -> new IllegalArgumentException("Service is unavailable."))
+                    .getName();
+        }
+        if (serviceName == null || serviceName.isBlank()) {
+            throw new IllegalArgumentException("Service is required.");
+        }
+        request.setServiceName(serviceName.trim());
         request.setDescription(requestDTO.getDescription());
         request.setStatus("PENDING");
         request.setCreatedAt(LocalDateTime.now());
