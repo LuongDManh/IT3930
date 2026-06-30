@@ -79,6 +79,17 @@ public class ServiceRequestService {
         request.setCreatedAt(LocalDateTime.now());
         request.setUpdatedAt(LocalDateTime.now());
 
+        request = serviceRequestRepository.save(request);
+
+        Task task = new Task();
+        task.setType("DYNAMIC");
+        task.setIsDone(false);
+        task.setTitle("Service request: " + request.getServiceName());
+        task.setDescription(buildTaskDescription(request));
+        task = taskRepository.save(task);
+
+        request.setTask(task);
+
         return serviceRequestRepository.save(request);
     }
 
@@ -92,15 +103,19 @@ public class ServiceRequestService {
             task = new Task();
             task.setType("DYNAMIC");
             task.setIsDone(false);
+            task.setTitle("Service request: " + request.getServiceName());
+            task.setDescription(buildTaskDescription(request));
         }
 
-        task.setTitle("Service request: " + request.getServiceName());
-        task.setDescription(buildTaskDescription(request));
         task.setStaffs(staffs);
         task = taskRepository.save(task);
 
         request.setTask(task);
-        request.setStatus(staffs.isEmpty() ? "PENDING" : "ASSIGNED");
+        if (!staffs.isEmpty()) {
+            request.setStatus("ASSIGNED");
+        } else if ("ASSIGNED".equals(request.getStatus())) {
+            request.setStatus("PENDING");
+        }
         request.setUpdatedAt(LocalDateTime.now());
         return serviceRequestRepository.save(request);
     }
@@ -111,7 +126,7 @@ public class ServiceRequestService {
         request.setStatus(status);
         request.setUpdatedAt(LocalDateTime.now());
 
-        if (request.getTask() != null && ("DONE".equals(status) || "ASSIGNED".equals(status))) {
+        if (request.getTask() != null) {
             request.getTask().setIsDone("DONE".equals(status));
             taskRepository.save(request.getTask());
         }
