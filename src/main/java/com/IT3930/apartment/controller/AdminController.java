@@ -150,7 +150,8 @@ public class AdminController {
     @PostMapping("/bills")
     public ResponseEntity<?> createBill(@RequestBody BillGenerationRequestDTO request) {
         try {
-            Bill newBill = billService.createBill(request.getApartmentId(), request.getMonth(), request.getDueDate());
+            Bill newBill = billService.createBill(
+                    request.getApartmentId(), request.getMonth(), request.getDueDate(), request.getBillItemIds());
             return ResponseEntity.ok(newBill);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -160,7 +161,8 @@ public class AdminController {
     @PostMapping("/bills/bulk")
     public ResponseEntity<?> createBillsForAllApartments(@RequestBody BillGenerationRequestDTO request) {
         try {
-            List<Bill> newBills = billService.createBillsForAllApartments(request.getMonth(), request.getDueDate());
+            List<Bill> newBills = billService.createBillsForAllApartments(
+                    request.getMonth(), request.getDueDate(), request.getBillItemIds());
             return ResponseEntity.ok(newBills);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());

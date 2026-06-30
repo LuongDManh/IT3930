@@ -95,6 +95,7 @@ public class OwnerController {
                 for (com.IT3930.apartment.model.bill.BillUse use : uses) {
                     java.util.Map<String, Object> itemMap = new java.util.HashMap<>();
                     itemMap.put("itemName", use.getBillItem().getName());
+                    itemMap.put("unit", use.getBillItem().getUnit());
                     itemMap.put("quantity", use.getQuantity());
                     items.add(itemMap);
                 }

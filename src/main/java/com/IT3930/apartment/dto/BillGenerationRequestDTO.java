@@ -8,6 +8,7 @@ public class BillGenerationRequestDTO {
     private Long apartmentId;
     private YearMonth month;
     private List<ItemUsageDTO> usages;
+    private List<Long> billItemIds;
     private LocalDate dueDate;
 
     public BillGenerationRequestDTO() {
@@ -45,4 +46,6 @@ public class BillGenerationRequestDTO {
 
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+    public List<Long> getBillItemIds() { return billItemIds; }
+    public void setBillItemIds(List<Long> billItemIds) { this.billItemIds = billItemIds; }
 }

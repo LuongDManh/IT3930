@@ -17,6 +17,9 @@ public class BillItem {
     @Column(name = "unit_price", nullable = false)
     private BigDecimal unitPrice;
 
+    @Column(nullable = false)
+    private String unit;
+
     @Column(name = "is_active", columnDefinition = "boolean default true")
     private boolean isActive = true;
 
@@ -52,6 +55,9 @@ public class BillItem {
     public void setUnitPrice(BigDecimal unitPrice) {
         this.unitPrice = unitPrice;
     }
+
+    public String getUnit() { return unit; }
+    public void setUnit(String unit) { this.unit = unit; }
 
     public boolean isActive() {
         return isActive;

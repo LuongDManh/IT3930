@@ -118,6 +118,44 @@
             font-size: 0.875rem;
             margin-top: 0.75rem;
         }
+        .payment-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        .payment-summary strong {
+            display: block;
+            margin-top: 0.25rem;
+            color: var(--text-primary);
+        }
+        .payment-methods {
+            display: grid;
+            gap: 0.65rem;
+            margin-top: 1rem;
+        }
+        .payment-method {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+        .payment-method:has(input:checked) {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.12);
+        }
+        .payment-success {
+            display: none;
+            text-align: center;
+            padding: 1.5rem 0 0.5rem;
+        }
+        .payment-success h3 { color: #4ade80; margin-bottom: 0.5rem; }
     </style>
 </head>
 <body class="dashboard-page">
@@ -141,30 +179,9 @@
         </div>
 
         <div class="navbar__right">
-            <div class="navbar__user">
-                <div class="avatar Owner">
-                    <span>O</span>
-                </div>
-                <div class="navbar__user-info">
-                    <span class="navbar__email" th:text="${account.email}">user@email.com</span>
-                    <span class="navbar__role badge Owner">Owner</span>
-                </div>
-            </div>
-            <a href="/dashboard" class="btn-logout" style="text-decoration: none; margin-right: 1rem; color: #333;">
-                <span>Dashboard</span>
+            <a href="/dashboard" class="btn-logout" style="text-decoration: none;">
+                <span>Back to Dashboard</span>
             </a>
-            <form th:action="@{/logout}" method="post" class="logout-form">
-                <button type="submit" class="btn-logout" id="logoutButton">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                        <polyline points="16 17 21 12 16 7"/>
-                        <line x1="21" y1="12" x2="9" y2="12"/>
-                    </svg>
-                    <span>Logout</span>
-                </button>
-            </form>
         </div>
     </nav>
 
@@ -187,8 +204,41 @@
         </div>
     </main>
 
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Pay Bill</h2>
+                <button class="close-btn" onclick="closePaymentModal()">&times;</button>
+            </div>
+            <div id="paymentForm">
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">Simulated payment for project demonstration.</p>
+                <div class="payment-summary">
+                    <div><span>Apartment</span><strong id="paymentApartment"></strong></div>
+                    <div><span>Billing Period</span><strong id="paymentMonth"></strong></div>
+                    <div style="grid-column: 1 / -1;"><span>Total Amount</span><strong id="paymentAmount" style="font-size:1.35rem;color:#4ade80;"></strong></div>
+                </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label>Payment Method</label>
+                    <div class="payment-methods">
+                        <label class="payment-method"><input type="radio" name="paymentMethod" value="Bank transfer" checked> Bank Transfer</label>
+                        <label class="payment-method"><input type="radio" name="paymentMethod" value="E-wallet"> E-Wallet</label>
+                        <label class="payment-method"><input type="radio" name="paymentMethod" value="Demo card"> Demo Card</label>
+                    </div>
+                </div>
+                <button id="confirmPaymentButton" class="btn-login" style="margin-top: 1.25rem;" onclick="confirmPayment()">Confirm Payment</button>
+            </div>
+            <div id="paymentSuccess" class="payment-success">
+                <h3>Payment Successful</h3>
+                <p>Your simulated payment has been recorded.</p>
+                <p style="margin-top:.75rem;">Receipt: <strong id="paymentReceipt"></strong></p>
+                <button class="btn-login" style="margin-top:1.25rem;" onclick="closePaymentModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let allBills = [];
+        let selectedPaymentBill = null;
 
         document.addEventListener('DOMContentLoaded', fetchBills);
 
@@ -301,7 +351,7 @@
                                 ${bill.items.map(item => `
                                     <tr>
                                         <td>${item.itemName}</td>
-                                        <td>${item.quantity}</td>
+                                        <td>${item.quantity} ${item.unit || ''}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -345,27 +395,53 @@
                                 <div class="receipt-note">Paid${bill.paymentReference ? ' - Receipt ' + bill.paymentReference : ''}</div>
                                 <button class="pay-button" style="margin-top:.75rem" onclick="window.location.href='/api/owner/bills/${bill.billId}/receipt'">Download Receipt</button>
                             ` : `
-                                <button class="pay-button" style="margin-top: 1rem;" onclick="payBill(${bill.billId})">Pay Bill</button>
+                                <button class="pay-button" style="margin-top: 1rem;" onclick="openPaymentModal(${bill.billId})">Pay Bill</button>
                             `}
 	                    </div>
 	                `;
 	            }).join('');
 	        }
 
-            async function payBill(billId) {
-                if (!confirm('This is a simulated payment for the project demo. Continue?')) return;
+            function openPaymentModal(billId) {
+                selectedPaymentBill = allBills.find(bill => bill.billId === billId);
+                if (!selectedPaymentBill) return;
+                document.getElementById('paymentApartment').textContent =
+                    selectedPaymentBill.apartmentName + ' - Floor ' + selectedPaymentBill.apartmentFloor;
+                document.getElementById('paymentMonth').textContent = formatMonthYear(selectedPaymentBill.month);
+                document.getElementById('paymentAmount').textContent =
+                    Math.round(selectedPaymentBill.cost || 0).toLocaleString('vi-VN') + ' VND';
+                document.getElementById('paymentForm').style.display = 'block';
+                document.getElementById('paymentSuccess').style.display = 'none';
+                document.getElementById('paymentModal').classList.add('active');
+            }
+
+            function closePaymentModal() {
+                document.getElementById('paymentModal').classList.remove('active');
+                selectedPaymentBill = null;
+            }
+
+            async function confirmPayment() {
+                if (!selectedPaymentBill) return;
+                const button = document.getElementById('confirmPaymentButton');
+                button.disabled = true;
+                button.textContent = 'Processing...';
                 try {
-                    const res = await fetch('/api/owner/bills/' + billId + '/pay', { method: 'POST' });
+                    const res = await fetch('/api/owner/bills/' + selectedPaymentBill.billId + '/pay', { method: 'POST' });
                     if (!res.ok) {
                         alert('Payment failed: ' + await res.text());
                         return;
                     }
                     const receipt = await res.json();
-                    alert('Payment simulated successfully. Receipt: ' + receipt.paymentReference);
+                    document.getElementById('paymentReceipt').textContent = receipt.paymentReference;
+                    document.getElementById('paymentForm').style.display = 'none';
+                    document.getElementById('paymentSuccess').style.display = 'block';
                     await fetchBills();
                 } catch (e) {
                     console.error(e);
                     alert('Payment failed.');
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'Confirm Payment';
                 }
             }
 	    </script>

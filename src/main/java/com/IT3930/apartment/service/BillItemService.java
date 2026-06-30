@@ -30,6 +30,7 @@ public class BillItemService {
 
     // ADD
     public BillItem addBillItem(BillItem billItem) {
+        validateUnit(billItem);
         billItem.setActive(true);
         return billItemRepository.save(billItem);
     }
@@ -40,6 +41,9 @@ public class BillItemService {
         
         existingItem.setName(updatedBillItem.getName());
         existingItem.setUnitPrice(updatedBillItem.getUnitPrice());
+        validateUnit(updatedBillItem);
+        existingItem.setUnit(updatedBillItem.getUnit().trim());
+        existingItem.setActive(updatedBillItem.isActive());
         
         return billItemRepository.save(existingItem);
     }
@@ -49,5 +53,12 @@ public class BillItemService {
         BillItem existingItem = getBillItemById(id);
         existingItem.setActive(false);
         billItemRepository.save(existingItem);
+    }
+
+    private void validateUnit(BillItem billItem) {
+        if (billItem.getUnit() == null || billItem.getUnit().isBlank()) {
+            throw new IllegalArgumentException("Unit is required.");
+        }
+        billItem.setUnit(billItem.getUnit().trim());
     }
 }

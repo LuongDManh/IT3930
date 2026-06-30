@@ -50,7 +50,7 @@ public class BillService {
     // --- CREATE ---
     // 1. Initialize Bill with 0 quantity for all active BillItems
     @Transactional
-    public Bill createBill(Long apartmentId, YearMonth month, java.time.LocalDate dueDate) {
+    public Bill createBill(Long apartmentId, YearMonth month, java.time.LocalDate dueDate, List<Long> billItemIds) {
         Apartment apartment = apartmentRepository.findById(apartmentId)
                 .orElseThrow(() -> new RuntimeException("Apartment not found: " + apartmentId));
 
@@ -71,7 +71,7 @@ public class BillService {
             bill = billRepository.save(bill);
 
             // Fetch all active BillItems (e.g. Water, Electricity, etc.)
-            List<BillItem> allItems = billItemRepository.findByIsActiveTrue();
+            List<BillItem> allItems = getSelectedActiveItems(billItemIds);
             List<BillUse> billUses = new ArrayList<>();
             BigDecimal totalCost = BigDecimal.ZERO;
 
@@ -191,7 +191,7 @@ public class BillService {
 
     // 3. Create bills for all active apartments
     @Transactional
-    public List<Bill> createBillsForAllApartments(YearMonth month, java.time.LocalDate dueDate) {
+    public List<Bill> createBillsForAllApartments(YearMonth month, java.time.LocalDate dueDate, List<Long> billItemIds) {
         List<Apartment> allApartments = apartmentRepository.findAll();
         List<Bill> createdBills = new ArrayList<>();
         YearMonth targetMonth = (month != null) ? month : YearMonth.now();
@@ -207,7 +207,7 @@ public class BillService {
                 
                 bill = billRepository.save(bill);
 
-                List<BillItem> allItems = billItemRepository.findByIsActiveTrue();
+                List<BillItem> allItems = getSelectedActiveItems(billItemIds);
                 List<BillUse> billUses = new ArrayList<>();
                 BigDecimal totalCost = BigDecimal.ZERO;
 
@@ -234,5 +234,18 @@ public class BillService {
             }
         }
         return createdBills;
+    }
+
+    private List<BillItem> getSelectedActiveItems(List<Long> billItemIds) {
+        if (billItemIds == null || billItemIds.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one bill item.");
+        }
+        List<BillItem> items = billItemRepository.findAllById(billItemIds).stream()
+                .filter(BillItem::isActive)
+                .toList();
+        if (items.size() != billItemIds.stream().distinct().count()) {
+            throw new IllegalArgumentException("One or more selected bill items are invalid or inactive.");
+        }
+        return items;
     }
 }
