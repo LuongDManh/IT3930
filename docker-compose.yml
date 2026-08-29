@@ -5,9 +5,9 @@
       - "8080:8080"
     environment:
       # PostgreSQL - Aiven
-      SPRING_DATASOURCE_URL: jdbc:postgresql://it3930-manh-80a8.l.aivencloud.com:12419/defaultdb?sslmode=require
-      SPRING_DATASOURCE_USERNAME: avnadmin
-      SPRING_DATASOURCE_PASSWORD: AVNS_s2Y7cL60H99pMRjY2sR
+      SPRING_DATASOURCE_URL: ${DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
 
       # JPA / Hibernate
@@ -17,8 +17,8 @@
       # Mail
       SPRING_MAIL_HOST: smtp.gmail.com
       SPRING_MAIL_PORT: "587"
-      SPRING_MAIL_USERNAME: ducm5365@gmail.com
-      SPRING_MAIL_PASSWORD: vgansybnrzowwltm
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
 
