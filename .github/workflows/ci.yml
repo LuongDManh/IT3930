@@ -1,10 +1,10 @@
-name: CI – Build & Test
+name: CI - Build & Test
 
 on:
   push:
-    branches: ["**"]          # run on every branch push
+    branches: ["**"]
   pull_request:
-    branches: ["**"]          # run on every PR
+    branches: ["**"]
 
 jobs:
   test:
@@ -12,33 +12,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout source ──────────────────────────────────────────────
+      # 1. Checkout source
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      # ── 2. Set up JDK 21 ────────────────────────────────────────────────
+      # 2. Set up JDK 21
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
-          distribution: "temurin"        # Eclipse Temurin (formerly AdoptOpenJDK)
-          cache: maven                   # cache ~/.m2 between runs for speed
+          distribution: "temurin"
+          cache: maven
 
-      # ── 3. Make Maven wrapper executable ────────────────────────────────
+      # 3. Make Maven wrapper executable
       - name: Make mvnw executable
         run: chmod +x mvnw
 
-      # ── 4. Run tests ─────────────────────────────────────────────────────
-      # The test profile (application-test.properties) excludes DataSource,
-      # JPA, and Mail auto-configuration so no real database or SMTP server
-      # is needed.  All tests use Mockito and run entirely in-process.
+      # 4. Run tests
       - name: Run tests
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: ./mvnw test -Dspring.profiles.active=test --no-transfer-progress
 
-      # ── 5. Upload Surefire test report ──────────────────────────────────
+      # 5. Upload Surefire test report
       - name: Upload test results
-        if: always()           # upload even when tests fail so you can inspect
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@v5
         with:
           name: surefire-reports
           path: target/surefire-reports/
