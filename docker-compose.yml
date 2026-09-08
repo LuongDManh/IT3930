@@ -1,15 +1,12 @@
 services:
+
   # ──────────────────────────────────────────────────────────────
-  # Application (3 replicas)
+  # Application — 3 replicas spread across 3 Swarm nodes
   # ──────────────────────────────────────────────────────────────
   app:
     image: luongdmanh/apartment-web-app:ver1
     ports:
       - "8080:8080"
-    deploy:
-      replicas: 3
-      restart_policy:
-        condition: on-failure
     environment:
       SPRING_DATASOURCE_URL: ${DB_URL}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
@@ -24,11 +21,19 @@ services:
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
       SERVER_SERVLET_SESSION_PERSISTENT: "false"
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
     networks:
       - monitoring
 
   # ──────────────────────────────────────────────────────────────
-  # Prometheus — metrics collection
+  # Prometheus — 1 instance, pinned to manager node
+  # Image: https://hub.docker.com/r/prom/prometheus
   # ──────────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:latest
@@ -48,18 +53,25 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
     deploy:
       replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
       restart_policy:
         condition: any
     networks:
       - monitoring
 
   # ──────────────────────────────────────────────────────────────
-  # Node Exporter — HOST metrics
+  # Node Exporter — HOST metrics (CPU, RAM, disk, network)
+  # Image: https://hub.docker.com/r/prom/node-exporter
+  # mode: global → 1 instance per node, runs on ALL 3 nodes
   # ──────────────────────────────────────────────────────────────
   node-exporter:
     image: prom/node-exporter:latest
     ports:
-      - "9100:9100"
+      - target: 9100
+        published: 9100
+        mode: host        # host mode: each node exposes its own port directly
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -69,35 +81,45 @@ services:
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    hostname: "{{.Node.Hostname}}"
     deploy:
-      replicas: 1
+      mode: global        # 1 replica on EACH Swarm node automatically
       restart_policy:
         condition: any
     networks:
       - monitoring
 
   # ──────────────────────────────────────────────────────────────
-  # cAdvisor — CONTAINER metrics
+  # cAdvisor — CONTAINER metrics (per-container CPU, mem, net)
+  # Image: gcr.io/cadvisor/cadvisor
+  # mode: global → 1 instance per node, monitors ALL containers
+  # Note: `devices` is not supported in docker stack deploy.
+  #       cAdvisor will warn about /dev/kmsg but collects all
+  #       essential container metrics without it.
   # ──────────────────────────────────────────────────────────────
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     ports:
-      - "8081:8080"
+      - target: 8080
+        published: 8081
+        mode: host        # host mode: each node exposes its own port directly
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
+    privileged: true      # required for full container metrics
     deploy:
-      replicas: 1
+      mode: global        # 1 replica on EACH Swarm node automatically
       restart_policy:
         condition: any
     networks:
       - monitoring
 
   # ──────────────────────────────────────────────────────────────
-  # Grafana — visualization dashboard
+  # Grafana — visualization (1 instance, pinned to manager node)
+  # Image: https://hub.docker.com/r/grafana/grafana
   # ──────────────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:latest
@@ -114,23 +136,31 @@ services:
         target: /etc/grafana/provisioning/dashboards/dashboards.yml
     volumes:
       - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
     deploy:
       replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
       restart_policy:
         condition: any
     networks:
       - monitoring
 
 # ──────────────────────────────────────────────────────────────
-# Networks, Configs & Volumes
+# Networks
 # ──────────────────────────────────────────────────────────────
 networks:
   monitoring:
-    driver: overlay
-    attachable: true
+    driver: overlay       # overlay spans all 3 Swarm nodes
+    attachable: true      # allows manual `docker run --network` for debugging
 
+# ──────────────────────────────────────────────────────────────
+# Configs (external = must be created before stack deploy)
+# Run:
+#   docker config create prometheus_config  ./monitoring/prometheus/prometheus.yml
+#   docker config create grafana_datasources ./monitoring/grafana/provisioning/datasources/prometheus.yml
+#   docker config create grafana_dashboards  ./monitoring/grafana/provisioning/dashboards/dashboards.yml
+# ──────────────────────────────────────────────────────────────
 configs:
   prometheus_config:
     external: true
@@ -139,6 +169,9 @@ configs:
   grafana_dashboards:
     external: true
 
+# ──────────────────────────────────────────────────────────────
+# Volumes (created on the node where the service runs)
+# ──────────────────────────────────────────────────────────────
 volumes:
   prometheus_data:
   grafana_data:

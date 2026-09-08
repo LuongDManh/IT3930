@@ -8,30 +8,40 @@ alerting:
     - static_configs:
         - targets: []
 
-rule_files:
-  - "rules/*.yml"
+rule_files: []
 
 scrape_configs:
 
-  # Prometheus self-monitoring
+  # ── Prometheus self-monitoring ─────────────────────────────────
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
 
-  # Host metrics via Node Exporter
+  # ── Host metrics — Node Exporter on ALL 3 nodes ────────────────
+  # `tasks.node-exporter` is Docker Swarm's internal DNS that
+  # resolves to each individual task IP (not the VIP).
+  # This gives Prometheus 3 separate targets — one per node.
   - job_name: "node_exporter"
-    static_configs:
-      - targets: ["node-exporter:9100"]
+    dns_sd_configs:
+      - names:
+          - "tasks.node-exporter"
+        type: A
+        port: 9100
+        refresh_interval: 30s
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
-        replacement: "host"
 
-  # Container metrics via cAdvisor
+  # ── Container metrics — cAdvisor on ALL 3 nodes ───────────────
+  # `tasks.cadvisor` resolves to each individual cAdvisor task IP.
+  # This gives Prometheus 3 separate targets — one per node.
   - job_name: "cadvisor"
-    static_configs:
-      - targets: ["cadvisor:8080"]
-    metric_relabel_configs:
-      - source_labels: [container_label_com_docker_compose_service]
-        regex: "(app|prometheus|grafana|node-exporter|cadvisor)"
-        action: keep
+    dns_sd_configs:
+      - names:
+          - "tasks.cadvisor"
+        type: A
+        port: 8080
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
