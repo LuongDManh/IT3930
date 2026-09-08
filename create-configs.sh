@@ -3,7 +3,7 @@
 echo "=========================================="
 echo "  CREATE DOCKER CONFIGS  "
 echo "=========================================="
-
+docker config ls -q | xargs docker config rm
 # Tạo Prometheus config
 if docker config ls | grep -q "prometheus_config"; then
     echo "🔄 Prometheus config đã tồn tại, đang xóa..."
