@@ -1,0 +1,104 @@
+name: CD - Deploy to Docker Swarm
+
+# Trigger ONLY after CI passes on main — avoids double-run
+on:
+  workflow_run:
+    workflows: ["CI - Build & Test"]
+    types: [completed]
+    branches: ["main"]
+
+jobs:
+  deploy:
+    name: Deploy stack to Swarm manager
+    runs-on: ubuntu-latest
+
+    # Only deploy when CI succeeded — skip if CI failed
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      # ── 1. Checkout (needed for context; actual files pulled on VPS) ──
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # ── 2. SSH → deploy ───────────────────────────────────────────────
+      #
+      #  Required GitHub Secrets  (repo → Settings → Secrets → Actions):
+      #    SWARM_MANAGER_IP   — manager VPS public IP
+      #    SWARM_SSH_USER     — SSH login user (e.g. ubuntu, root)
+      #    SWARM_SSH_KEY      — full private key content (PEM)
+      #    DB_URL             — PostgreSQL JDBC URL
+      #    DB_USERNAME        — DB username
+      #    DB_PASSWORD        — DB password
+      #    MAIL_USERNAME      — Gmail address
+      #    MAIL_PASSWORD      — Gmail app password
+      #    GRAFANA_PASSWORD   — Grafana admin password
+      - name: Deploy to Docker Swarm via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          # Inject secret values so the remote script can use them
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
+        with:
+          host: ${{ secrets.SWARM_MANAGER_IP }}
+          username: ${{ secrets.SWARM_SSH_USER }}
+          key: ${{ secrets.SWARM_SSH_KEY }}
+          envs: DB_URL,DB_USERNAME,DB_PASSWORD,MAIL_USERNAME,MAIL_PASSWORD,GRAFANA_PASSWORD
+          script: |
+            set -e
+
+            echo "=== Pulling latest code on manager ==="
+            REPO_DIR=~/apartment
+
+            # Clone on first deploy; pull on subsequent deploys
+            if [ -d "$REPO_DIR/.git" ]; then
+              git -C "$REPO_DIR" pull origin main
+            else
+              git clone https://github.com/${{ github.repository }} "$REPO_DIR"
+            fi
+
+            echo "=== Recreating Docker configs (idempotent) ==="
+            bash "$REPO_DIR/create-configs.sh"
+
+            echo "=== Deploying stack ==="
+            docker stack deploy \
+              --compose-file "$REPO_DIR/docker-compose.yml" \
+              --with-registry-auth \
+              --prune \
+              apartment
+
+            echo "=== Stack status ==="
+            docker stack ps apartment --no-trunc
+
+      # ── 3. Health check after services settle ─────────────────────────
+      - name: Wait for services to stabilize
+        run: sleep 30
+
+      - name: Verify all services are running
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SWARM_MANAGER_IP }}
+          username: ${{ secrets.SWARM_SSH_USER }}
+          key: ${{ secrets.SWARM_SSH_KEY }}
+          script: |
+            set -e
+
+            echo "=== Service list ==="
+            docker service ls
+
+            echo "=== Checking for failed tasks ==="
+            FAILED=$(docker stack ps apartment \
+              --filter "desired-state=shutdown" \
+              --format "{{.Name}} — {{.Error}}" \
+              | grep -v "^$" || true)
+
+            if [ -n "$FAILED" ]; then
+              echo "❌ Failed tasks detected:"
+              echo "$FAILED"
+              exit 1
+            fi
+
+            echo "✅ All services healthy"
